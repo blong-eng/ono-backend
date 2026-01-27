@@ -4,7 +4,7 @@ import (
 	"context"
 	"log"
 	"net/http"
-	"os" // ✅ Required for environment variables
+	"os"
 
 	"cloud.google.com/go/firestore"
 	"github.com/gin-gonic/gin"
@@ -30,8 +30,7 @@ func main() {
 		sa = option.WithCredentialsJSON([]byte(creds))
 		log.Println("🔑 Using Firebase Credentials from Environment Variables")
 	} else {
-		// Development: Access the local key file
-		// This file is ignored by git, so it only exists on your local machine
+		// Development: Access the local key file (ignored by git)
 		sa = option.WithServiceAccountFile("one-night-out-eb2ed-firebase-adminsdk-fbsvc-d62d276844.json")
 		log.Println("📁 Using local Firebase JSON file")
 	}
@@ -47,7 +46,7 @@ func main() {
 
 	r := gin.Default()
 
-	// 2. Endpoint: Get Tutorial Steps
+	// 2. Endpoint: Get Tutorial Steps (Resilient Mode)
 	r.GET("/tutorials/:screen", func(c *gin.Context) {
 		screen := c.Param("screen")
 		userID := c.Query("userId")
@@ -61,6 +60,7 @@ func main() {
 		doc, err := client.Collection("users").Doc(userID).
 			Collection("tutorials").Doc(screen).Get(ctx)
 
+		// Resilience logic: Only skip if the doc explicitly exists AND is marked finished
 		if err == nil && doc.Exists() {
 			data := doc.Data()
 			if finished, ok := data["finished"].(bool); ok && finished {
@@ -70,11 +70,13 @@ func main() {
 			}
 		}
 
+		// Fallback: If doc doesn't exist (err != nil), we assume they need the tutorial steps
 		steps := getTutorialSteps(screen)
+		log.Printf("📥 Serving %d steps for %s to user %s", len(steps), screen, userID)
 		c.JSON(http.StatusOK, steps)
 	})
 
-	// 3. Endpoint: Mark Tutorial Complete
+	// 3. Endpoint: Mark Tutorial Complete (Auto-Creation Mode)
 	r.POST("/tutorials/complete", func(c *gin.Context) {
 		var req struct {
 			UserID string `json:"userId"`
@@ -86,12 +88,13 @@ func main() {
 			return
 		}
 
+		// ✅ Using Set with MergeAll ensures the document is created if it doesn't exist
 		_, err := client.Collection("users").Doc(req.UserID).
 			Collection("tutorials").Doc(req.Screen).
 			Set(ctx, map[string]interface{}{
 				"finished":  true,
 				"updatedAt": firestore.ServerTimestamp,
-			})
+			}, firestore.MergeAll)
 
 		if err != nil {
 			log.Printf("❌ Firestore Write Error: %v", err)
@@ -107,7 +110,7 @@ func main() {
 		c.JSON(http.StatusOK, gin.H{"status": "Go backend is active"})
 	})
 
-	// ✅ Dynamic Port for Railway
+	// ✅ Dynamic Port Handling for Railway
 	port := os.Getenv("PORT")
 	if port == "" {
 		port = "8080"
