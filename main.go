@@ -4,6 +4,7 @@ import (
 	"context"
 	"log"
 	"net/http"
+	"os" // ✅ Required for environment variables
 
 	"cloud.google.com/go/firestore"
 	"github.com/gin-gonic/gin"
@@ -19,9 +20,22 @@ var ctx = context.Background()
 func main() {
 	// 1. Initialize Firestore
 	projectID := "one-night-out-eb2ed"
+	var sa option.ClientOption
 
-	// Access the key you added to .gitignore
-sa := option.WithServiceAccountFile("one-night-out-eb2ed-firebase-adminsdk-fbsvc-d62d276844.json")
+	// Check if we are on Railway by looking for the Environment Variable
+	creds := os.Getenv("FIREBASE_CREDENTIALS")
+
+	if creds != "" {
+		// Production: Use the JSON string from Railway Variables
+		sa = option.WithCredentialsJSON([]byte(creds))
+		log.Println("🔑 Using Firebase Credentials from Environment Variables")
+	} else {
+		// Development: Access the local key file
+		// This file is ignored by git, so it only exists on your local machine
+		sa = option.WithServiceAccountFile("one-night-out-eb2ed-firebase-adminsdk-fbsvc-d62d276844.json")
+		log.Println("📁 Using local Firebase JSON file")
+	}
+
 	var err error
 	client, err = firestore.NewClient(ctx, projectID, sa)
 	if err != nil {
@@ -56,7 +70,6 @@ sa := option.WithServiceAccountFile("one-night-out-eb2ed-firebase-adminsdk-fbsvc
 			}
 		}
 
-		// ✅ Updated to handle the interface{} return type
 		steps := getTutorialSteps(screen)
 		c.JSON(http.StatusOK, steps)
 	})
@@ -94,10 +107,17 @@ sa := option.WithServiceAccountFile("one-night-out-eb2ed-firebase-adminsdk-fbsvc
 		c.JSON(http.StatusOK, gin.H{"status": "Go backend is active"})
 	})
 
-	r.Run("0.0.0.0:8080")
+	// ✅ Dynamic Port for Railway
+	port := os.Getenv("PORT")
+	if port == "" {
+		port = "8080"
+	}
+
+	log.Printf("📡 Server starting on port %s", port)
+	r.Run("0.0.0.0:" + port)
 }
 
-// ✅ Updated return type to []map[string]interface{} to resolve compile errors
+// ✅ Tutorial mapping logic
 func getTutorialSteps(screen string) []map[string]interface{} {
 	switch screen {
 	case "home":
@@ -107,15 +127,15 @@ func getTutorialSteps(screen string) []map[string]interface{} {
 	case "business":
 		return tutorials.GetBusinessSteps()
 	case "profile":
-		return tutorials.GetProfileSteps() // ✅ Added Profile
+		return tutorials.GetProfileSteps()
 	case "explore":
-		return tutorials.GetExploreSteps() // ✅ Added Explore
+		return tutorials.GetExploreSteps()
 	case "wallet":
-		return tutorials.GetWalletSteps() // ✅ Added Wallet
+		return tutorials.GetWalletSteps()
 	case "planner":
-		return tutorials.GetPlannerSteps() // ✅ Added Planner
+		return tutorials.GetPlannerSteps()
 	case "message_board":
-		return tutorials.GetBoardSteps() // ✅ Added Message Board
+		return tutorials.GetBoardSteps()
 	default:
 		return []map[string]interface{}{}
 	}
