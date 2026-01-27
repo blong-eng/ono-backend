@@ -1,0 +1,11 @@
+# Firebase Secret Key
+one-night-out-eb2ed-firebase-adminsdk-fbsvc-d62d276844.json
+serviceAccountKey.json
+
+# Local Environment/DB
+.env
+*.db
+
+# Go Binaries
+*.exe
+main
