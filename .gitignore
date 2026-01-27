@@ -6,6 +6,5 @@ serviceAccountKey.json
 .env
 *.db
 
-# Go Binaries
+# Go Binaries (Ignore the .exe, but NOT the .go files)
 *.exe
-main
