@@ -4,7 +4,7 @@ func GetBuilderSteps() []map[string]interface{} {
 	return []map[string]interface{}{
 		{"target_key": "location_key",
 		"title": "Destination",
-		"instruction": "Where are you heading? Enter the city and state."},
+		"instruction": "Where are you heading? Enter the city and state. Or you can search using a Zip Code"},
 
 		{"target_key": "date_key",
 		"title": "Date Selection",
